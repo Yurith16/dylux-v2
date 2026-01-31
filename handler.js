@@ -237,13 +237,42 @@ if (this.user && this.user.jid) {
         let usedPrefix
         //let _user = global.db.data && global.db.data.users && global.db.data.users[m.sender]
         
-        const groupMetadata = (m.isGroup ? ((conn.chats[m.chat] || {}).metadata || await this.groupMetadata(m.chat).catch(_ => null)) : {}) || {}
-        const participants = (m.isGroup ? groupMetadata.participants : []) || []
-        const user = (m.isGroup ? participants.find(u => conn.decodeJid(u.id) === m.sender) : {}) || {} // User Data
-        const bot = (m.isGroup ? participants.find(u => conn.decodeJid(u.id) == this.user.jid) : {}) || {} // Your Data
-        const isRAdmin = user?.admin == 'superadmin' || false
-        const isAdmin = isRAdmin || user?.admin == 'admin' || false // Is User Admin?
-        const isBotAdmin = bot?.admin || false // Are you Admin?
+        // Obtener metadata del grupo
+        let groupMetadata = {}
+        let participants = []
+        let user = {}
+        let bot = {}
+        let isRAdmin = false
+        let isAdmin = false
+        let isBotAdmin = false
+
+        if (m.isGroup) {
+            try {
+                groupMetadata = (conn.chats[m.chat] || {}).metadata || await this.groupMetadata(m.chat).catch(_ => null) || {}
+                participants = groupMetadata.participants || []
+
+                // Buscar usuario
+                for (let p of participants) {
+                    if (conn.decodeJid(p.id) === m.sender) {
+                        user = p
+                        isRAdmin = p.admin === 'superadmin'
+                        isAdmin = isRAdmin || p.admin === 'admin'
+                        break
+                    }
+                }
+
+                // Buscar bot
+                for (let p of participants) {
+                    if (conn.decodeJid(p.id) === this.user.jid) {
+                        bot = p
+                        isBotAdmin = p.admin === 'admin' || p.admin === 'superadmin'
+                        break
+                    }
+                }
+            } catch (e) {
+                console.error('Error obteniendo metadata:', e)
+            }
+        }
 
         const ___dirname = path.join(path.dirname(fileURLToPath(import.meta.url)), './plugins')
         for (let name in global.plugins) {
